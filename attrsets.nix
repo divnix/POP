@@ -1,4 +1,6 @@
-{lib}: {
+{lib}: let
+  inherit (lib) isAttrs hasAttr getAttr setAttrByPath head tail;
+in rec {
   /*
     Override the attrset a with the name-value bindings from attrset b,
    or just return b if a isn't an attrset.
