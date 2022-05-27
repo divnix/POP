@@ -19,17 +19,42 @@
           c = 3;
         };
       });
-      expected = ["__meta__" "a" "b" "c"];
+      expected = ["__meta__" "__unpop__" "a" "b" "c"];
     };
     testInstantiation = {
-      expr = unpop (pop {
-        defaults.a = 5;
-        extension = self: super: {a = super.a + 1;};
-      });
+      expr =
+        (lib.pop {
+          defaults.a = 5;
+          extension = self: super: {a = super.a + 1;};
+        })
+        .__unpop__;
       expected = {
         a = 6;
       };
     };
+    testIncrementExtender = let
+      counterPop = pop {
+        defaults.value = 0;
+        extenders.increment = number: self: super: {
+          value = super.value + number;
+        };
+      };
+    in {
+      expr = ((counterPop.increment 1).increment 4).value;
+      expected = 5;
+    };
+    testAppendExtender = let
+      listPop = pop {
+        defaults.values = [];
+        extenders.append = value: self: super: {
+          values = super.values ++ [value];
+        };
+      };
+    in {
+      expr = ((listPop.append "a").append "h").values;
+      expected = ["a" "h"];
+    };
+
     testHelpers = {
       expr = {
         emptyIsEmpty = isEmpty [];
@@ -62,7 +87,7 @@
           };
         };
       in
-        unpop (pop {supers = [a b];});
+        (lib.pop {supers = [a b];}).__unpop__;
       expected = {
         nvim = pkgs.neovim;
         package = pkgs.neovim;

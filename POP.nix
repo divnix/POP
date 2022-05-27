@@ -97,7 +97,13 @@
     precedenceList = computePrecedenceList instantiator meta.supers;
     defaults = lib.foldr mergeInstance bottomInstance ([meta.defaults] ++ map getDefaults precedenceList);
     __meta__ = meta // {inherit precedenceList;};
-    proto = composeProtos ([(topProto __meta__) (extensionProto meta.extension)] ++ (map getProto precedenceList));
+    proto = composeProtos ([
+        (topProto __meta__)
+        (self: super:
+          (extensionProto meta.extension self super)
+          // (buildExtenders meta.extenders self super))
+      ]
+      ++ (map getProto precedenceList));
   in
     instantiateProto proto defaults;
   /*
@@ -205,6 +211,21 @@
            composeProto (extensionProto g) (extensionProto f)
    */
 
+  # Build a set of functions that return a pop thats extended by the extender function
+  # buildExtenders: (Attrset (_: Extension A B)) C D -> (Attrset (_: Pop A B))
+  buildExtenders = extenders: self: super:
+    lib.mapAttrs (
+      name: extender: (
+        arg:
+          pop {
+            name = self.__meta__.name;
+            supers = [self];
+            extension = extender arg;
+          }
+      )
+    )
+    extenders;
+
   # identityExtension :: Extension A A
   identityExtension = self: super: {};
   /*
@@ -222,7 +243,12 @@
     computePrecedenceList = c3ComputePrecedenceList;
     mergeInstance = mergeAttrset;
     bottomInstance = {};
-    topProto = __meta__: self: super: super // {inherit __meta__;};
+    topProto = __meta__: self: super:
+      super
+      // {
+        inherit __meta__;
+        __unpop__ = unpop self;
+      };
     getSupers = {supers ? [], ...}: supers;
     getPrecedenceList = p:
       if p ? __meta__
@@ -234,7 +260,10 @@
       else {};
     getProto = p:
       if p ? __meta__
-      then extensionProto p.__meta__.extension
+      then
+        self: super:
+          (extensionProto p.__meta__.extension self super)
+          // (buildExtenders p.__meta__.extenders self super)
       else _self: super: super // p;
     getName = p:
       if p ? __meta__
@@ -261,6 +290,7 @@
       supers = [];
       precedenceList = [p];
       extension = _: _: p;
+      extenders = {};
       defaults = {};
       name = "attrs";
     };
@@ -269,16 +299,17 @@
   # an optional list `supers` of super pops, an `extension` as above, and
   # an attrset `defaults` for default bindings.
   # pop :: { name ? :: String, supers ? :: (IndexedList I i: Pop (M_ i) (B_ i)),
-  #          extension ? :: Extension A M, defaults ? :: Defaults A, ... }
+  #          extension ? :: Extension A M, extenders ? :: Attrset (args: Extension C D), defaults ? :: Defaults A, ... }
   #         -> Pop A B | A <: (Union I M_) <: M <: B <: (Union I B_)
   pop = {
     supers ? [],
     extension ? identityExtension,
+    extenders ? {},
     defaults ? {},
     name ? "pop",
     ...
   } @ meta:
-    instantiatePop (meta // {inherit extension defaults name supers;});
+    instantiatePop (meta // {inherit extension extenders defaults name supers;});
 
   # A base pop, in case you need a shared one.
   # basePop :: (Pop A A)
@@ -351,7 +382,13 @@
   # namePop :: String (Pop A B) -> Pop A B
   namePop = name: p: p // {__meta__ = (getMeta p) // {inherit name;};};
 
+  # Get the names of all extenders throughout a pop's precedence list
+  # getExtenderNames :: POP A B -> List : String
+  getExtenderNames = p:
+    lib.flatten ([(builtins.attrNames p.__meta__.extenders)]
+      ++ (map (x: builtins.attrNames x.__meta__.extenders) p.__meta__.precedenceList));
+
   # Turn a pop into a normal attrset by erasing its `__meta__` information.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p: builtins.removeAttrs p (["__meta__" "__unpop__"] ++ (getExtenderNames p));
 }
