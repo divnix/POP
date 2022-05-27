@@ -97,9 +97,11 @@
     precedenceList = computePrecedenceList instantiator meta;
     defaults = lib.foldr mergeInstance bottomInstance (map getDefaults precedenceList);
     __meta__ = meta // {inherit precedenceList;};
-    proto = composeProtos ([(topProto __meta__)] ++ (map getProto precedenceList));
+    metaProto = topProto __meta__;
+    proto = composeProtos ([metaProto] ++ (map getProto precedenceList));
+    self = instantiateProto proto defaults;
   in
-    instantiateProto proto defaults;
+    self // { unpop = unpop self; };
   /*
    foldr works much better in a lazy setting, by providing short-cut behavior
    when child behavior shadows parent behavior without calling super.
@@ -205,6 +207,14 @@
            composeProto (extensionProto g) (extensionProto f)
    */
 
+  buildExtenders = extenders: self: super:
+    lib.mapAttrs (name: extender:
+      pop {
+        supers = [self];
+        extension = extender;
+      })
+    extenders;
+
   # identityExtension :: Extension A A
   identityExtension = self: super: {};
   /*
@@ -226,7 +236,9 @@
     getSupers = {supers ? [], ...}: supers;
     getPrecedenceList = m: m.precedenceList;
     getDefaults = m: m.defaults;
-    getProto = m: extensionProto m.extension;
+    getProto = m: self: super:
+      (extensionProto m.extension self super)
+      // (buildExtenders m.extenders self super);
     getName = m: m.name;
   };
   /*
@@ -250,6 +262,7 @@
         supers = [];
         precedenceList = [m];
         extension = _: _: p;
+        extenders = _: _: {};
         defaults = {};
         name = "attrs";
       };
@@ -260,11 +273,12 @@
   # an optional list `supers` of super pops, an `extension` as above, and
   # an attrset `defaults` for default bindings.
   # pop :: { name ? :: String, supers ? :: (IndexedList I i: Pop (M_ i) (B_ i)),
-  #          extension ? :: Extension A M, defaults ? :: Defaults A, ... }
+  #          extension ? :: Extension A M, extenders ? :: Extender A M, defaults ? :: Defaults A, ... }
   #         -> Pop A B | A <: (Union I M_) <: M <: B <: (Union I B_)
   pop = {
     supers ? [],
     extension ? identityExtension,
+    extenders ? {},
     defaults ? {},
     name ? "pop",
     ...
@@ -273,7 +287,7 @@
   in let
     supers = map getMeta supers_;
   in
-    instantiatePop (meta // {inherit extension defaults name supers;});
+    instantiatePop (meta // {inherit extension extenders defaults name supers;});
 
   # A base pop, in case you need a shared one.
   # basePop :: (Pop A A)
@@ -348,5 +362,5 @@
 
   # Turn a pop into a normal attrset by erasing its `__meta__` information.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p: builtins.removeAttrs p (["__meta__"]++(builtins.attrNames p.__meta__.extenders));
 }
