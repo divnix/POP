@@ -1,0 +1,29 @@
+name: "Check & Cachix"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+
+    - uses: actions/checkout@v3
+
+    - uses: cachix/install-nix-action@v17
+      with:
+        extra_nix_config: |
+          access-tokens = github.com=${{ github.token }}
+          system-features = nixos-test benchmark big-parallel kvm recursive-nix
+          substituters = https://nix-community.cachix.org https://cache.nixos.org
+          trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+
+    # Check the POP library
+    - run: nix flake check --show-trace
