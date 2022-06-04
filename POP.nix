@@ -12,7 +12,7 @@
 # importing its bindings directly in lib since it's experimental. ---fare
 {lib, ...}: rec {
   /*
-   First, let's defined a general notion of prototypes, valid for any type
+   First, let's define a general notion of prototypes, valid for any type
    of instance, absent any requirement that the instance should somehow carry
    the prototype information to remain composable via inheritance.
    
