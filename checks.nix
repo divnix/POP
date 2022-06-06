@@ -1,6 +1,6 @@
 {
   system ? builtins.currentSystem,
-  inputs ? (import ../.).inputs,
+  inputs ? (import ./.).inputs,
 }: let
   inherit (inputs) POP nixlib nixpkgs;
   lib = nixlib.lib // POP.lib;

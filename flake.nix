@@ -1,6 +1,11 @@
 {
   inputs.nixlib.url = "github:nix-community/nixpkgs.lib";
 
+  inputs.flake-compat = {
+    url = "github:edolstra/flake-compat";
+    flake = false;
+  };
+
   # Development Dependencies
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -8,6 +13,7 @@
     self,
     nixlib,
     nixpkgs,
+    ...
   }: let
     lib = nixlib.lib.extend (self: super: import ./attrsets.nix {lib = self;});
 
