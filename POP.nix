@@ -124,12 +124,16 @@
   removeEmpties = builtins.filter isNonEmpty;
 
   # removeNext :: X (List (NonEmptyList X)) -> (List (NonEmptyList X))
-  removeNext = next: tails:
+  removeNext = next: tails: getName:
+    let result =
     removeEmpties (map (l:
-      if (builtins.elemAt l 0 == next)
+      view { __returningFrom = "removeNext_compareHead"; next = getName next; head = getName (builtins.elemAt l 0); same = (builtins.elemAt l 0 == next); }
+      (if (builtins.elemAt l 0 == next)
       then builtins.tail l
-      else l)
-    tails);
+      else l))
+    tails); in
+    view { __returningFrom = "removeNext"; next = getName next; tails = map (map getName) tails;
+           result = map (map getName) result; } result;
 
   # every :: (X -> Bool) (List X) -> Bool
   every = pred: l: let
@@ -144,43 +148,51 @@
   in
     getPrecedenceList;
 
+  # c3SelectNext :: (NonEmptyList (NonEmptyList X)) -> X
+  c3SelectNext = tails: err: let
+    isCandidate = c: every (tail: !(builtins.elem c (builtins.tail tail))) tails;
+    loop = ts:
+      if isEmpty ts
+      then err
+      else let
+        c = builtins.elemAt (builtins.elemAt ts 0) 0;
+      in
+        if isCandidate c
+        then c
+        else loop (builtins.tail ts);
+  in
+    loop tails;
+
+  view = x: lib.debug.traceSeqN 4 (builtins.toJSON x);
+
   # c3computePrecedenceList ::
   #   { getSupers: (A -> (List A)); getPrecedenceList: ?(A -> (NonEmptyList A)); } A -> (NonEmptyList A)
   c3ComputePrecedenceList = {
     getSupers,
     getPrecedenceList ? (getPrecedenceList_of_getSupers getSupers),
+    getName ? (x: x),
     ...
   }: x: let
     # super :: (List A)
     supers = getSupers x;
     # superPrecedenceLists :: (List (NonEmptyList A))
     superPrecedenceLists = map getPrecedenceList supers;
-    # c3SelectNext :: (NonEmptyList (NonEmptyList X)) -> X
-    c3SelectNext = tails: let
-      isCandidate = c: every (tail: !(builtins.elem c (builtins.tail tail))) tails;
-      loop = ts:
-        if isEmpty ts
-        then throw ["Inconsistent precedence graph" x]
-        else let
-          c = builtins.elemAt (builtins.elemAt ts 0) 0;
-        in
-          if isCandidate c
-          then c
-          else loop (builtins.tail ts);
-    in
-      loop tails;
     # loop :: (NonEmptyList X) (List (NonEmptyList X)) -> (NonEmptyList X)
+    err = throw ["Inconsistent precedence graph" (getName x)];
     loop = head: tails:
-      if isEmpty tails
+      view { head = map getName head; tails = map (map getName) tails; }
+      (if isEmpty tails
       then head
       else if builtins.length tails == 1
       then head ++ (builtins.elemAt tails 0)
       else let
-        next = c3SelectNext tails;
+        next = c3SelectNext tails err;
       in
-        loop (head ++ [next]) (removeNext next tails);
+        loop (head ++ [next]) (removeNext next tails getName));
   in
+    let result =
     loop [x] (removeEmpties (superPrecedenceLists ++ [supers]));
+    in view { x = getName x; precedenceList = map getName result; } result;
 
   /*
    Extensions as prototypes to be merged into attrsets.
