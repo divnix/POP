@@ -10,6 +10,7 @@
   tests = lib.runTests {
     testInstantiation = {
       expr = unpop (pop {
+        name = "five";
         defaults.a = 5;
         extension = self: super: {a = super.a + 1;};
       });
@@ -42,15 +43,19 @@
 
     testInheritance = {
       expr = let
-        a = pop {defaults.package = pkgs.vim;};
+        a = pop {
+          defaults.package = pkgs.vim;
+          name = "vim";
+        };
         b = pop {
+          name = "neovim";
           extension = self: super: {
             nvim = pkgs.neovim;
             package = self.nvim;
           };
         };
       in
-        unpop (pop {supers = [a b];});
+        unpop (pop { name = "ephemeral"; supers = [a b]; });
       expected = {
         nvim = pkgs.neovim;
         package = pkgs.neovim;

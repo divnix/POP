@@ -172,27 +172,11 @@
     getPrecedenceList ? (getPrecedenceList_of_getSupers getSupers),
     getName ? (x: x),
     ...
-  }: x: let
-    # super :: (List A)
-    supers = getSupers x;
-    # superPrecedenceLists :: (List (NonEmptyList A))
-    superPrecedenceLists = map getPrecedenceList supers;
-    # loop :: (NonEmptyList X) (List (NonEmptyList X)) -> (NonEmptyList X)
-    err = throw ["Inconsistent precedence graph" (getName x)];
-    loop = head: tails:
-      view { head = map getName head; tails = map (map getName) tails; }
-      (if isEmpty tails
-      then head
-      else if builtins.length tails == 1
-      then head ++ (builtins.elemAt tails 0)
-      else let
-        next = c3SelectNext tails err;
-      in
-        loop (head ++ [next]) (removeNext next tails getName));
-  in
-    let result =
-    loop [x] (removeEmpties (superPrecedenceLists ++ [supers]));
-    in view { x = getName x; precedenceList = map getName result; } result;
+  }: x:
+     builtins.genericClosure {
+      startSet = [ x ];
+      operator = x: view { inherit (x) key; } (getSupers x);
+    };
 
   /*
    Extensions as prototypes to be merged into attrsets.
@@ -235,7 +219,7 @@
     mergeInstance = mergeAttrset;
     bottomInstance = {};
     topProto = __meta__: self: super: super // {inherit __meta__;};
-    getSupers = {supers ? [], ...}: supers;
+    getSupers = m: m.supers or [];
     getPrecedenceList = m: m.precedenceList;
     getDefaults = m: m.defaults;
     getProto = m: extensionProto m.extension;
@@ -278,14 +262,14 @@
     supers ? [],
     extension ? identityExtension,
     defaults ? {},
-    name ? "pop",
+    name,
     ...
   } @ meta: let
     supers_ = supers;
   in let
     supers = map getMeta supers_;
   in
-    instantiatePop (meta // {inherit extension defaults name supers;});
+    instantiatePop (meta // {inherit extension defaults name supers; key = name;});
 
   # A base pop, in case you need a shared one.
   # basePop :: (Pop A A)
