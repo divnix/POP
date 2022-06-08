@@ -94,10 +94,10 @@
     getProto,
     ...
   } @ instantiator: meta: let
-    precedenceList = computePrecedenceList instantiator meta;
-    defaults = lib.foldr mergeInstance bottomInstance (map getDefaults precedenceList);
+    precedenceList = computePrecedenceList instantiator meta.supers;
+    defaults = lib.foldr mergeInstance bottomInstance ([meta.defaults] ++ map getDefaults precedenceList);
     __meta__ = meta // {inherit precedenceList;};
-    proto = composeProtos ([(topProto __meta__)] ++ (map getProto precedenceList));
+    proto = composeProtos ([(topProto __meta__) (extensionProto meta.extension)] ++ (map getProto precedenceList));
   in
     instantiateProto proto defaults;
   /*
@@ -124,16 +124,12 @@
   removeEmpties = builtins.filter isNonEmpty;
 
   # removeNext :: X (List (NonEmptyList X)) -> (List (NonEmptyList X))
-  removeNext = next: tails: getName:
-    let result =
+  removeNext = next: tails:
     removeEmpties (map (l:
-      view { __returningFrom = "removeNext_compareHead"; next = getName next; head = getName (builtins.elemAt l 0); same = (builtins.elemAt l 0 == next); }
-      (if (builtins.elemAt l 0 == next)
+      if (builtins.elemAt l 0 == next)
       then builtins.tail l
-      else l))
-    tails); in
-    view { __returningFrom = "removeNext"; next = getName next; tails = map (map getName) tails;
-           result = map (map getName) result; } result;
+      else l)
+    tails);
 
   # every :: (X -> Bool) (List X) -> Bool
   every = pred: l: let
@@ -144,7 +140,7 @@
   # Given a getSupers function, compute the precedence list without any caching.
   # getPrecedenceList_of_getSupers :: (X -> (List X)) -> (X -> (NonEmptyList X))
   getPrecedenceList_of_getSupers = getSupers: let
-    getPrecedenceList = c3ComputePrecedenceList {inherit getSupers getPrecedenceList;};
+    getPrecedenceList = x: c3ComputePrecedenceList {inherit getSupers getPrecedenceList;} (getSupers x);
   in
     getPrecedenceList;
 
@@ -163,36 +159,28 @@
   in
     loop tails;
 
-  view = x: lib.debug.traceSeqN 4 (builtins.toJSON x);
-
   # c3computePrecedenceList ::
-  #   { getSupers: (A -> (List A)); getPrecedenceList: ?(A -> (NonEmptyList A)); } A -> (NonEmptyList A)
+  #   { getSupers: (A -> (List A)); getPrecedenceList: ?(A -> (NonEmptyList A)); } (List A) -> (NonEmptyList A)
   c3ComputePrecedenceList = {
     getSupers,
     getPrecedenceList ? (getPrecedenceList_of_getSupers getSupers),
-    getName ? (x: x),
     ...
-  }: x: let
-    # super :: (List A)
-    supers = getSupers x;
+  }: supers: let
     # superPrecedenceLists :: (List (NonEmptyList A))
-    superPrecedenceLists = map getPrecedenceList supers;
+    superPrecedenceLists = map (super: [super] ++ getPrecedenceList super) supers;
     # loop :: (NonEmptyList X) (List (NonEmptyList X)) -> (NonEmptyList X)
-    err = throw ["Inconsistent precedence graph" (getName x)];
+    err = throw ["Inconsistent precedence graph"];
     loop = head: tails:
-      view { head = map getName head; tails = map (map getName) tails; }
-      (if isEmpty tails
+      if isEmpty tails
       then head
       else if builtins.length tails == 1
       then head ++ (builtins.elemAt tails 0)
       else let
         next = c3SelectNext tails err;
       in
-        loop (head ++ [next]) (removeNext next tails getName));
+        loop (head ++ [next]) (removeNext next tails);
   in
-    let result =
-    loop [x] (removeEmpties (superPrecedenceLists ++ [supers]));
-    in view { x = getName x; precedenceList = map getName result; } result;
+    loop [] (removeEmpties (superPrecedenceLists ++ [supers]));
 
   /*
    Extensions as prototypes to be merged into attrsets.
@@ -236,10 +224,22 @@
     bottomInstance = {};
     topProto = __meta__: self: super: super // {inherit __meta__;};
     getSupers = {supers ? [], ...}: supers;
-    getPrecedenceList = m: m.precedenceList;
-    getDefaults = m: m.defaults;
-    getProto = m: extensionProto m.extension;
-    getName = m: m.name;
+    getPrecedenceList = p:
+      if p ? __meta__
+      then p.__meta__.precedenceList
+      else [];
+    getDefaults = p:
+      if p ? __meta__
+      then p.__meta__.defaults
+      else {};
+    getProto = p:
+      if p ? __meta__
+      then extensionProto p.__meta__.extension
+      else _self: super: super // p;
+    getName = p:
+      if p ? __meta__
+      then p.__meta__.name
+      else "attrs";
   };
   /*
    TODO: make that an object too, put it in the `__meta__` of `__meta__`, and
@@ -257,16 +257,13 @@
   getMeta = p:
     if p ? __meta__
     then p.__meta__
-    else let
-      m = {
-        supers = [];
-        precedenceList = [m];
-        extension = _: _: p;
-        defaults = {};
-        name = "attrs";
-      };
-    in
-      m;
+    else {
+      supers = [];
+      precedenceList = [p];
+      extension = _: _: p;
+      defaults = {};
+      name = "attrs";
+    };
 
   # General purpose constructor for a `pop` object, based on an optional `name`,
   # an optional list `supers` of super pops, an `extension` as above, and
@@ -280,11 +277,7 @@
     defaults ? {},
     name ? "pop",
     ...
-  } @ meta: let
-    supers_ = supers;
-  in let
-    supers = map getMeta supers_;
-  in
+  } @ meta:
     instantiatePop (meta // {inherit extension defaults name supers;});
 
   # A base pop, in case you need a shared one.
