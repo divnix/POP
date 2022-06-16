@@ -19,7 +19,7 @@
           c = 3;
         };
       });
-      expected = ["__meta__" "a" "b" "c"];
+      expected = ["__meta__" "__functor" "a" "b" "c"];
     };
     testInstantiation = {
       expr = unpop (pop {
@@ -52,6 +52,21 @@
         testRemoveNext = [[2 3 4] [2 5] [6 7] [3 6] [8]];
       };
     };
+    testFunctor = {
+      expr = let
+        a = pop {defaults.m = 0;};
+        b = a {
+          m = 1;
+          n = 2;
+        };
+      in
+        unpop b;
+      expected = {
+        m = 1;
+        n = 2;
+      };
+    };
+
     testInheritance = {
       expr = let
         a = pop {defaults.package = pkgs.vim;};
@@ -138,7 +153,17 @@ in {
         (
           if tests == []
           then null
-          else throw (builtins.toJSON tests)
+          else
+            throw (
+              "Failed tests:\n" +
+              nixlib.lib.concatStringsSep
+              "\n-------------------\n"
+              (
+                map
+                (nixlib.lib.generators.toPretty {})
+                tests
+              )
+            )
         )
       ];
     } ''
