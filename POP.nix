@@ -222,7 +222,29 @@
     computePrecedenceList = c3ComputePrecedenceList;
     mergeInstance = mergeAttrset;
     bottomInstance = {};
-    topProto = __meta__: self: super: super // {inherit __meta__;};
+    topProto = __meta__: self: super:
+      super
+      // {
+        inherit __meta__;
+        __functor = self: extension:
+          pop {
+            name = self.__meta__.name;
+            supers = [self];
+            /*
+             The argument passed to the functor can be:
+              - just an attrset,
+              - a function asking for self
+              - a function asking for self and super
+             */
+            extension = self: super:
+              if builtins.isFunction extension
+              then
+                if builtins.isFunction (extension self)
+                then extension self super
+                else extension self
+              else extension;
+          };
+      };
     getSupers = {supers ? [], ...}: supers;
     getPrecedenceList = p:
       if p ? __meta__
@@ -353,5 +375,5 @@
 
   # Turn a pop into a normal attrset by erasing its `__meta__` information.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p: builtins.removeAttrs p ["__meta__" "__functor"];
 }

@@ -19,7 +19,7 @@
           c = 3;
         };
       });
-      expected = ["__meta__" "a" "b" "c"];
+      expected = ["__functor" "__meta__" "a" "b" "c"];
     };
     testInstantiation = {
       expr = unpop (pop {
@@ -50,6 +50,20 @@
         list4IsNonEmpty = true;
         testRemoveEmpties = [[1] [2 3] [4 [] 5] [6]];
         testRemoveNext = [[2 3 4] [2 5] [6 7] [3 6] [8]];
+      };
+    };
+    testFunctor = {
+      expr = let
+        a = pop {defaults.m = 0;};
+        b = a {
+          m = 1;
+          n = 5;
+        };
+      in
+        unpop b;
+      expected = {
+        m = 1;
+        n = 5;
       };
     };
 
