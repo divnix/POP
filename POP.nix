@@ -222,7 +222,10 @@
     computePrecedenceList = c3ComputePrecedenceList;
     mergeInstance = mergeAttrset;
     bottomInstance = {};
-    topProto = __meta__: self: super: super // {inherit __meta__;};
+    topProto = __meta__: self: super: super // {
+      inherit __meta__;
+      __unpop__ = unpop self;
+    };
     getSupers = {supers ? [], ...}: supers;
     getPrecedenceList = p:
       if p ? __meta__
@@ -353,5 +356,5 @@
 
   # Turn a pop into a normal attrset by erasing its `__meta__` information.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p: builtins.removeAttrs p ["__meta__" "__unpop__"];
 }
