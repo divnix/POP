@@ -76,6 +76,11 @@
      https://www.well-typed.com/blog/2014/04/fixing-foldl/
    */
 
+  # The default attribute names that are special to POP
+  defaultSpecialNames = [
+    "__meta__"
+  ];
+
   /*
    Now for multiply-inheriting prototype meta information. Like prototypes,
    this notion is useful on its own, even to produce values other than objects
@@ -262,6 +267,7 @@
       precedenceList = [p];
       extension = _: _: p;
       defaults = {};
+      specialNames = defaultSpecialNames;
       name = "attrs";
     };
 
@@ -275,10 +281,11 @@
     supers ? [],
     extension ? identityExtension,
     defaults ? {},
+    specialNames ? defaultSpecialNames,
     name ? "pop",
     ...
   } @ meta:
-    instantiatePop (meta // {inherit extension defaults name supers;});
+    instantiatePop (meta // {inherit extension defaults specialNames name supers;});
 
   # A base pop, in case you need a shared one.
   # basePop :: (Pop A A)
@@ -351,7 +358,13 @@
   # namePop :: String (Pop A B) -> Pop A B
   namePop = name: p: p // {__meta__ = (getMeta p) // {inherit name;};};
 
-  # Turn a pop into a normal attrset by erasing its `__meta__` information.
+  # Turn a pop into a normal attrset by erasing its `__meta__` information and all special attributes.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p:
+    builtins.removeAttrs p (
+      lib.foldl
+      (lhs: rhs: lhs ++ rhs.__meta__.specialNames)
+      p.__meta__.specialNames
+      p.__meta__.precedenceList
+    );
 }
