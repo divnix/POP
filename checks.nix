@@ -141,8 +141,8 @@ in {
           then null
           else
             throw (
-              "Failed tests:\n" +
-              nixlib.lib.concatStringsSep
+              "Failed tests:\n"
+              + nixlib.lib.concatStringsSep
               "\n-------------------\n"
               (
                 map
