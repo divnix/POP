@@ -22,10 +22,12 @@
       expected = ["__meta__" "__unpop__" "a" "b" "c"];
     };
     testInstantiation = {
-      expr = (pop {
-        defaults.a = 5;
-        extension = self: super: {a = super.a + 1;};
-      }).__unpop__;
+      expr =
+        (pop {
+          defaults.a = 5;
+          extension = self: super: {a = super.a + 1;};
+        })
+        .__unpop__;
       expected = {
         a = 6;
       };
