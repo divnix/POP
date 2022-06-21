@@ -97,7 +97,7 @@
     precedenceList = computePrecedenceList instantiator meta.supers;
     defaults = lib.foldr mergeInstance bottomInstance ([meta.defaults] ++ map getDefaults precedenceList);
     __meta__ = meta // {inherit precedenceList;};
-    proto = composeProtos ([(topProto __meta__) (extensionProto meta.extension)] ++ (map getProto precedenceList));
+    proto = composeProtos ([(extensionProto meta.extension)] ++ (map getProto precedenceList) ++ [(topProto __meta__)]);
   in
     instantiateProto proto defaults;
   /*
