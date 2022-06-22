@@ -4,7 +4,7 @@
 }: let
   inherit (inputs) POP nixlib nixpkgs;
   lib = nixlib.lib // POP.lib;
-  inherit (lib) pop unpop isEmpty isNonEmpty removeEmpties removeNext c3selectNext PopInstantiator;
+  inherit (lib) pop isEmpty isNonEmpty removeEmpties removeNext c3selectNext PopInstantiator;
   inherit (PopInstantiator) getName getPrecedenceList;
   pkgs = nixpkgs.legacyPackages.${system};
   tests = lib.runTests {
@@ -19,13 +19,13 @@
           c = 3;
         };
       });
-      expected = ["__meta__" "a" "b" "c"];
+      expected = ["__meta__" "__unpop__" "a" "b" "c"];
     };
     testInstantiation = {
-      expr = unpop (pop {
+      expr = (pop {
         defaults.a = 5;
         extension = self: super: {a = super.a + 1;};
-      });
+      }).__unpop__;
       expected = {
         a = 6;
       };
@@ -63,7 +63,7 @@
           };
         };
       in
-        unpop (pop {supers = [a b];});
+        (pop {supers = [a b];}).__unpop__;
       expected = {
         nvim = pkgs.neovim;
         package = pkgs.neovim;

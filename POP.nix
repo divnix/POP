@@ -97,7 +97,7 @@
     precedenceList = computePrecedenceList instantiator meta.supers;
     defaults = lib.foldr mergeInstance bottomInstance ([meta.defaults] ++ map getDefaults precedenceList);
     __meta__ = meta // {inherit precedenceList;};
-    proto = composeProtos ([(topProto __meta__) (extensionProto meta.extension)] ++ (map getProto precedenceList));
+    proto = composeProtos ([(extensionProto meta.extension)] ++ (map getProto precedenceList) ++ [(topProto __meta__)]);
   in
     instantiateProto proto defaults;
   /*
@@ -222,7 +222,10 @@
     computePrecedenceList = c3ComputePrecedenceList;
     mergeInstance = mergeAttrset;
     bottomInstance = {};
-    topProto = __meta__: self: super: super // {inherit __meta__;};
+    topProto = __meta__: self: super: super // {
+      inherit __meta__;
+      __unpop__ = unpop self;
+    };
     getSupers = {supers ? [], ...}: supers;
     getPrecedenceList = p:
       if p ? __meta__
@@ -353,5 +356,5 @@
 
   # Turn a pop into a normal attrset by erasing its `__meta__` information.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p: builtins.removeAttrs p ["__meta__" "__unpop__"];
 }
