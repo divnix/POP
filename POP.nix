@@ -97,7 +97,7 @@
     precedenceList = computePrecedenceList instantiator meta.supers;
     defaults = lib.foldr mergeInstance bottomInstance ([meta.defaults] ++ map getDefaults precedenceList);
     __meta__ = meta // {inherit precedenceList;};
-    proto = composeProtos ([(topProto __meta__) (extensionProto meta.extension)] ++ (map getProto precedenceList));
+    proto = composeProtos ([(extensionProto meta.extension)] ++ (map getProto precedenceList) ++ [(topProto __meta__)]);
   in
     instantiateProto proto defaults;
   /*
@@ -222,7 +222,19 @@
     computePrecedenceList = c3ComputePrecedenceList;
     mergeInstance = mergeAttrset;
     bottomInstance = {};
-    topProto = __meta__: self: super: super // {inherit __meta__;};
+    topProto = __meta__: self: super:
+      super
+      // {
+        __meta__ =
+          __meta__
+          // {
+            visibility = {
+              __meta__ = false;
+              __unpop__ = false;
+            } // __meta__.visibility;
+          };
+        __unpop__ = unpop self;
+      };
     getSupers = {supers ? [], ...}: supers;
     getPrecedenceList = p:
       if p ? __meta__
@@ -262,6 +274,7 @@
       precedenceList = [p];
       extension = _: _: p;
       defaults = {};
+      visibility = {};
       name = "attrs";
     };
 
@@ -275,10 +288,11 @@
     supers ? [],
     extension ? identityExtension,
     defaults ? {},
+    visibility ? {},
     name ? "pop",
     ...
   } @ meta:
-    instantiatePop (meta // {inherit extension defaults name supers;});
+    instantiatePop (meta // {inherit extension defaults visibility name supers;});
 
   # A base pop, in case you need a shared one.
   # basePop :: (Pop A A)
@@ -351,7 +365,15 @@
   # namePop :: String (Pop A B) -> Pop A B
   namePop = name: p: p // {__meta__ = (getMeta p) // {inherit name;};};
 
-  # Turn a pop into a normal attrset by erasing its `__meta__` information.
+  # Turn a pop into a normal attrset by erasing its `__meta__` and other invisible attributes.
   # unpop :: Pop A B -> A
-  unpop = p: builtins.removeAttrs p ["__meta__"];
+  unpop = p:
+    builtins.removeAttrs p (
+      builtins.attrNames
+      (lib.filterAttrs (_: v: !v)
+        (lib.foldr
+          (lhs: rhs: rhs // lhs.__meta__.visibility)
+          {}
+          ([p] ++ p.__meta__.precedenceList)))
+    );
 }
