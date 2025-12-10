@@ -39,7 +39,7 @@
         singletonIsNonEmpty = isNonEmpty [1];
         list4IsNonEmpty = isNonEmpty [1 2 3 4];
         testRemoveEmpties = removeEmpties [[] [1] [2 3] [] [4 [] 5] [6] [] []];
-        testRemoveNext = removeNext 1 [[2 3 4] [1 2 5] [1] [1 6 7] [3 6] [1 8] [1]];
+        testRemoveNext = removeNext (x: x) 1 [[2 3 4] [1 2 5] [1] [1 6 7] [3 6] [1 8] [1]];
       };
       expected = {
         emptyIsEmpty = true;
@@ -63,7 +63,7 @@
           };
         };
       in
-        unpop (pop {supers = [a b];});
+        unpop (pop {parents = [a b];});
       expected = {
         nvim = pkgs.neovim;
         package = pkgs.neovim;
@@ -72,43 +72,43 @@
     testMultipleInheritance = let
       O = pop {
         name = "O";
-        supers = [];
+        parents = [];
       };
       A = pop {
         name = "A";
-        supers = [O];
+        parents = [O];
       };
       B = pop {
         name = "B";
-        supers = [O];
+        parents = [O];
       };
       C = pop {
         name = "C";
-        supers = [O];
+        parents = [O];
       };
       D = pop {
         name = "D";
-        supers = [O];
+        parents = [O];
       };
       E = pop {
         name = "E";
-        supers = [O];
+        parents = [O];
       };
       K1 = pop {
         name = "K1";
-        supers = [A B C];
+        parents = [A B C];
       };
       K2 = pop {
         name = "K2";
-        supers = [D B E];
+        parents = [D B E];
       };
       K3 = pop {
         name = "K3";
-        supers = [D A];
+        parents = [D A];
       };
       Z = pop {
         name = "Z";
-        supers = [K1 K2 K3];
+        parents = [K1 K2 K3];
       };
       precedenceListNames = self: map getName ([self] ++ getPrecedenceList self);
     in {

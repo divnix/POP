@@ -20,3 +20,8 @@ where it is used for
 [Gerbil support](https://github.com/MuKnIO/nixpkgs/blob/devel/pkgs/development/compilers/gerbil/gerbil-support.nix)
 and the [packaging of Glow](https://gitlab.com/mukn/glow/-/blob/master/pkgs.nix).
 It was since reformatted with [alejandra](https://github.com/kamadorueda/alejandra).
+
+To run the tests:
+```bash
+nix flake check
+```
